@@ -11,6 +11,7 @@ from tool.utils import *
 from models import Yolov4
 from demo_darknet2onnx import detect
 
+import onnxsim
 
 def transform_to_onnx(weight_file, batch_size, n_classes, IN_IMAGE_H, IN_IMAGE_W):
     
@@ -31,8 +32,26 @@ def transform_to_onnx(weight_file, batch_size, n_classes, IN_IMAGE_H, IN_IMAGE_W
                       export_params=True,
                       opset_version=11,
                       do_constant_folding=True,
-                      input_names=['input'], output_names=['boxes', 'confs'],
+                      input_names=['images'], output_names=['boxes', 'classes'],
                       dynamic_axes=None)
+
+    if True:
+        model, check_ok = onnxsim.simplify(onnx_file_name, check_n=3, perform_optimization=False)
+        assert check_ok
+        onnx_file_name = "yolov4_{}_3_{}_{}_simp.onnx".format(batch_size, IN_IMAGE_H, IN_IMAGE_W)
+        onnx.save(model, onnx_file_name)
+
+    if False:
+        model = onnx.load(onnx_file_name)
+        onnx_file_name = "yolov4_{}_3_{}_{}_opti.onnx".format(batch_size, IN_IMAGE_H, IN_IMAGE_W)
+        optimized_model = onnx.optimizer.optimize(model)
+        onnx.save(optimized_model, onnx_file_name)
+
+    if False:
+        model = onnx.load(onnx_file_name)
+        polished_model = onnx.utils.polish_model(model)
+        onnx_file_name = "yolov4_{}_3_{}_{}_polished.onnx".format(batch_size, IN_IMAGE_H, IN_IMAGE_W)
+        onnx.save(polished_model, onnx_file_name)
 
     print('Onnx model exporting done')
     return onnx_file_name
@@ -44,14 +63,14 @@ def main(weight_file, image_path, batch_size, n_classes, IN_IMAGE_H, IN_IMAGE_W)
     # Transform to onnx as specified batch size
     transform_to_onnx(weight_file, batch_size, n_classes, IN_IMAGE_H, IN_IMAGE_W)
     # Transform to onnx for demo
-    onnx_path_demo = transform_to_onnx(weight_file, 1, n_classes, IN_IMAGE_H, IN_IMAGE_W)
+    #onnx_path_demo = transform_to_onnx(weight_file, 1, n_classes, IN_IMAGE_H, IN_IMAGE_W)
 
-    session = onnxruntime.InferenceSession(onnx_path_demo)
+    #session = onnxruntime.InferenceSession(onnx_path_demo)
     # session = onnx.load(onnx_path)
-    print("The model expects input shape: ", session.get_inputs()[0].shape)
+    #print("The model expects input shape: ", session.get_inputs()[0].shape)
 
-    image_src = cv2.imread(image_path)
-    detect(session, image_src)
+    #image_src = cv2.imread(image_path)
+    #detect(session, image_src)
 
 
 
